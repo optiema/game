@@ -1,0 +1,2370 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Galaga - 클래식 겔러그 아케이드</title>
+    <!-- Google Font for Arcade Style -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0b16;
+            --panel-bg: rgba(15, 15, 30, 0.75);
+            --panel-border: rgba(0, 191, 255, 0.2);
+            --glow-color: #00f0ff;
+            --accent-color: #ff0077;
+            --text-color: #ffffff;
+            --font-arcade: 'Press Start 2P', monospace;
+            --font-ui: 'Outfit', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at center, #141430 0%, #050510 100%);
+            color: var(--text-color);
+            font-family: var(--font-ui);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        /* Ambient Arcade Cabinet Background Light */
+        .ambient-glow {
+            position: absolute;
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(0, 240, 255, 0.08) 0%, rgba(255, 0, 119, 0.05) 50%, rgba(0,0,0,0) 100%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Layout Container */
+        .game-wrapper {
+            display: flex;
+            flex-direction: row;
+            gap: 30px;
+            z-index: 1;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+            align-items: stretch;
+        }
+
+        /* Sidebar Panels */
+        .side-panel {
+            width: 280px;
+            background: var(--panel-bg);
+            border: 2px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .side-panel:hover {
+            border-color: rgba(0, 191, 255, 0.4);
+            box-shadow: 0 10px 40px rgba(0, 191, 255, 0.15);
+        }
+
+        /* CRT Cabinet Screen styling */
+        .cabinet-outer {
+            background: #111116;
+            padding: 15px;
+            border-radius: 24px;
+            border: 4px solid #333344;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 
+                        inset 0 0 40px rgba(0, 0, 0, 0.9),
+                        0 0 30px rgba(0, 240, 255, 0.1);
+            position: relative;
+        }
+
+        .cabinet-outer::before {
+            content: "GALAGA";
+            position: absolute;
+            top: -22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: var(--font-arcade);
+            font-size: 16px;
+            color: #ffd700;
+            text-shadow: 0 0 8px #ffd700, 0 0 15px #ff4500;
+            background: #111116;
+            padding: 4px 20px;
+            border-radius: 8px;
+            border: 2px solid #ffd700;
+            letter-spacing: 2px;
+        }
+
+        .screen-container {
+            position: relative;
+            width: 510px;
+            height: 680px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: inset 0 0 60px rgba(0,0,0,1);
+        }
+
+        /* CRT Screen Filter Effects */
+        .crt-effect {
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
+
+        .crt-scanlines {
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.3) 50%
+            ), 
+            linear-gradient(
+                90deg, 
+                rgba(255, 0, 0, 0.05), 
+                rgba(0, 255, 0, 0.02), 
+                rgba(0, 0, 255, 0.05)
+            );
+            background-size: 100% 4px, 6px 100%;
+        }
+
+        .crt-vignette {
+            background: radial-gradient(
+                circle, 
+                transparent 60%, 
+                rgba(0, 0, 0, 0.8) 110%
+            );
+        }
+
+        .crt-glow {
+            animation: crt-flicker 0.15s infinite;
+        }
+
+        @keyframes crt-flicker {
+            0% { opacity: 0.985; }
+            50% { opacity: 1; }
+            100% { opacity: 0.99; }
+        }
+
+        /* Clean mode toggle class */
+        .no-crt .crt-effect {
+            display: none !important;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+        }
+
+        /* Typography & Retro styling inside panels */
+        h1, h2, h3 {
+            font-family: var(--font-arcade);
+            color: var(--glow-color);
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+            font-size: 14px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        h2 {
+            color: var(--accent-color);
+            text-shadow: 0 0 10px rgba(255, 0, 119, 0.5);
+            font-size: 12px;
+        }
+
+        p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #a0a0c0;
+            margin-bottom: 12px;
+        }
+
+        /* Controls Section */
+        .controls-list {
+            margin-top: 15px;
+            font-size: 13px;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+            padding-bottom: 6px;
+        }
+
+        .key-badge {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: var(--font-arcade);
+            font-size: 10px;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+            text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
+        }
+
+        /* Glass Buttons */
+        .btn {
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.2) 0%, rgba(0, 80, 255, 0.2) 100%);
+            border: 1px solid var(--glow-color);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-family: var(--font-arcade);
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 240, 255, 0.15);
+            margin-bottom: 12px;
+            text-shadow: 0 0 5px rgba(255,255,255,0.5);
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.4) 0%, rgba(0, 80, 255, 0.4) 100%);
+            box-shadow: 0 4px 20px rgba(0, 240, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-accent {
+            background: linear-gradient(135deg, rgba(255, 0, 119, 0.25) 0%, rgba(150, 0, 80, 0.25) 100%);
+            border-color: var(--accent-color);
+            box-shadow: 0 4px 15px rgba(255, 0, 119, 0.15);
+        }
+
+        .btn-accent:hover {
+            background: linear-gradient(135deg, rgba(255, 0, 119, 0.45) 0%, rgba(150, 0, 80, 0.45) 100%);
+            box-shadow: 0 4px 20px rgba(255, 0, 119, 0.45);
+        }
+
+        /* Leaderboard styling */
+        .leaderboard-list {
+            margin-top: 10px;
+            font-family: var(--font-arcade);
+            font-size: 9px;
+            list-style: none;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 4px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: #dcdcf0;
+        }
+
+        .leaderboard-item:nth-child(1) { color: #ffd700; text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+        .leaderboard-item:nth-child(2) { color: #c0c0c0; }
+        .leaderboard-item:nth-child(3) { color: #cd7f32; }
+
+        /* Custom options and toggles */
+        .option-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            font-size: 13px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+
+        input:checked + .slider {
+            background-color: rgba(0, 240, 255, 0.3);
+            border-color: var(--glow-color);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(22px);
+            background-color: var(--glow-color);
+            box-shadow: 0 0 8px var(--glow-color);
+        }
+
+        /* Responsive scaling for smaller viewports */
+        @media (max-width: 1100px) {
+            .game-wrapper {
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+                overflow-y: auto;
+                height: 100vh;
+                padding-top: 40px;
+            }
+            .side-panel {
+                width: 510px;
+                flex-direction: row;
+                gap: 20px;
+            }
+            .side-panel > div {
+                flex: 1;
+            }
+            .hide-on-mobile {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 550px) {
+            .screen-container {
+                width: 320px;
+                height: 426px;
+            }
+            .cabinet-outer {
+                padding: 8px;
+            }
+            .side-panel {
+                width: 336px;
+                flex-direction: column;
+            }
+            body {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-glow"></div>
+
+    <div class="game-wrapper">
+        <!-- Left Panel: Info & Leaderboards -->
+        <div class="side-panel">
+            <div>
+                <h1>GALAGA RETRO</h1>
+                <p style="text-align: center; font-size: 12px; color: #ffd700; margin-bottom: 20px;">
+                    클래식 겔러그 아케이드
+                </p>
+                <h2>HIGH SCORES</h2>
+                <ul class="leaderboard-list" id="leaderboard">
+                    <li class="leaderboard-item"><span>1st ABC</span><span>30,000</span></li>
+                    <li class="leaderboard-item"><span>2nd DEF</span><span>20,000</span></li>
+                    <li class="leaderboard-item"><span>3rd GHI</span><span>15,000</span></li>
+                    <li class="leaderboard-item"><span>4th JKL</span><span>10,000</span></li>
+                    <li class="leaderboard-item"><span>5th MNO</span><span>05,000</span></li>
+                </ul>
+            </div>
+            
+            <div style="margin-top: 20px;" class="hide-on-mobile">
+                <h2>GAME STATE</h2>
+                <div style="font-size: 12px; color: #aaa; margin-top: 10px; text-align: center;">
+                    <div id="wave-indicator" style="margin-bottom: 5px;">STAGE: 1</div>
+                    <div id="dual-indicator" style="color: #00f0ff;">SINGLE FIGHTER</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Game Screen -->
+        <div class="cabinet-outer">
+            <div class="screen-container crt-glow" id="screen-container">
+                <canvas id="gameCanvas" width="600" height="800"></canvas>
+                <!-- CRT scanline overlay -->
+                <div class="crt-effect crt-scanlines"></div>
+                <div class="crt-effect crt-vignette"></div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Controls & Options -->
+        <div class="side-panel">
+            <div>
+                <h2>CONTROLS</h2>
+                <div class="controls-list">
+                    <div class="control-row">
+                        <span>좌/우 이동</span>
+                        <div>
+                            <span class="key-badge">←</span>
+                            <span class="key-badge">→</span>
+                            <span class="key-badge">A</span>
+                            <span class="key-badge">D</span>
+                        </div>
+                    </div>
+                    <div class="control-row">
+                        <span>미사일 발사</span>
+                        <span class="key-badge">Space</span>
+                    </div>
+                    <div class="control-row">
+                        <span>게임 시작/재개</span>
+                        <span class="key-badge">Enter</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <h2>SETTINGS</h2>
+                <div class="option-row">
+                    <span>사운드 재생</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="sound-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="option-row">
+                    <span>CRT 필터</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="crt-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <button class="btn btn-accent" id="btn-restart">게임 리셋</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Web Audio API Retro Synth Sound Engine ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    this.ctx = new AudioContextClass();
+                }
+            }
+
+            resume() {
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playLaser() {
+                if (this.muted || !this.ctx) return;
+                this.resume();
+
+                const time = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+
+                osc.type = 'triangle'; // Retro chiptune sound
+                osc.frequency.setValueAtTime(880, time);
+                osc.frequency.exponentialRampToValueAtTime(110, time + 0.15);
+
+                gainNode.gain.setValueAtTime(0.15, time);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+                osc.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+
+                osc.start(time);
+                osc.stop(time + 0.16);
+            }
+
+            playEnemyLaser() {
+                if (this.muted || !this.ctx) return;
+                this.resume();
+
+                const time = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, time);
+                osc.frequency.linearRampToValueAtTime(600, time + 0.12);
+
+                gainNode.gain.setValueAtTime(0.08, time);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+
+                osc.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+
+                osc.start(time);
+                osc.stop(time + 0.13);
+            }
+
+            playExplosion(isLarge = false) {
+                if (this.muted || !this.ctx) return;
+                this.resume();
+
+                const time = this.ctx.currentTime;
+                const duration = isLarge ? 0.6 : 0.25;
+                
+                // Create audio buffer filled with white noise
+                const bufferSize = this.ctx.sampleRate * duration;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                // Create a lowpass filter to sweep down frequency
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(isLarge ? 600 : 1200, time);
+                filter.frequency.exponentialRampToValueAtTime(50, time + duration);
+
+                const gainNode = this.ctx.createGain();
+                gainNode.gain.setValueAtTime(isLarge ? 0.35 : 0.2, time);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, time + duration);
+
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+
+                noise.start(time);
+                noise.stop(time + duration);
+
+                // Add synthetic lower bass rumble for large explosions
+                if (isLarge) {
+                    const osc = this.ctx.createOscillator();
+                    const oscGain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(100, time);
+                    osc.frequency.linearRampToValueAtTime(30, time + 0.5);
+                    
+                    oscGain.gain.setValueAtTime(0.2, time);
+                    oscGain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
+
+                    osc.connect(oscGain);
+                    oscGain.connect(this.ctx.destination);
+                    osc.start(time);
+                    osc.stop(time + 0.5);
+                }
+            }
+
+            playTractorBeamSound() {
+                if (this.muted || !this.ctx) return null;
+                this.resume();
+
+                const time = this.ctx.currentTime;
+                // Create an LFO modulated pitch sweep loop
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, time);
+                
+                // Create LFO
+                const lfo = this.ctx.createOscillator();
+                lfo.frequency.value = 15; // Speed of pitch vibration
+                
+                const lfoGain = this.ctx.createGain();
+                lfoGain.gain.value = 100; // Modulation depth (range of frequency deviation)
+
+                lfo.connect(lfoGain);
+                lfoGain.connect(osc.frequency);
+                
+                gainNode.gain.setValueAtTime(0.12, time);
+                
+                osc.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+
+                lfo.start(time);
+                osc.start(time);
+
+                return { osc, lfo, gain: gainNode };
+            }
+
+            playNote(frequency, startTime, duration, type = 'sine') {
+                if (this.muted || !this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(frequency, startTime);
+
+                gainNode.gain.setValueAtTime(0.08, startTime);
+                gainNode.gain.setValueAtTime(0.08, startTime + duration - 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+                osc.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            }
+
+            playMelody(type) {
+                if (this.muted || !this.ctx) return;
+                this.resume();
+
+                const now = this.ctx.currentTime;
+                const noteFreqs = {
+                    'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+                    'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00, 'B5': 987.77,
+                    'C6': 1046.50
+                };
+
+                if (type === 'intro') {
+                    // Classic arcade intro theme arpeggio & melody
+                    const notes = [
+                        { note: 'G4', time: 0.0, dur: 0.1 },
+                        { note: 'C5', time: 0.1, dur: 0.1 },
+                        { note: 'E5', time: 0.2, dur: 0.1 },
+                        { note: 'G5', time: 0.3, dur: 0.15 },
+                        { note: 'E5', time: 0.45, dur: 0.1 },
+                        { note: 'G5', time: 0.55, dur: 0.25 },
+                        { note: 'A5', time: 0.8, dur: 0.1 },
+                        { note: 'G5', time: 0.9, dur: 0.1 },
+                        { note: 'F5', time: 1.0, dur: 0.1 },
+                        { note: 'E5', time: 1.1, dur: 0.1 },
+                        { note: 'D5', time: 1.2, dur: 0.1 },
+                        { note: 'C5', time: 1.3, dur: 0.3 }
+                    ];
+
+                    notes.forEach(n => {
+                        this.playNote(noteFreqs[n.note], now + n.time, n.dur, 'triangle');
+                    });
+                } else if (type === 'stage_clear') {
+                    // Triumphant Fanfare
+                    const notes = [
+                        { note: 'C5', time: 0.0, dur: 0.1 },
+                        { note: 'E5', time: 0.1, dur: 0.1 },
+                        { note: 'G5', time: 0.2, dur: 0.1 },
+                        { note: 'C6', time: 0.3, dur: 0.25 },
+                        { note: 'G5', time: 0.55, dur: 0.1 },
+                        { note: 'C6', time: 0.65, dur: 0.4 }
+                    ];
+
+                    notes.forEach(n => {
+                        this.playNote(noteFreqs[n.note], now + n.time, n.dur, 'sine');
+                    });
+                } else if (type === 'game_over') {
+                    // Sad descending tune
+                    const notes = [
+                        { note: 'C5', time: 0.0, dur: 0.15 },
+                        { note: 'B4', time: 0.15, dur: 0.15 },
+                        { note: 'A4', time: 0.3, dur: 0.15 },
+                        { note: 'G4', time: 0.45, dur: 0.25 },
+                        { note: 'F4', time: 0.7, dur: 0.15 },
+                        { note: 'E4', time: 0.85, dur: 0.15 },
+                        { note: 'D4', time: 1.0, dur: 0.15 },
+                        { note: 'C4', time: 1.15, dur: 0.5 }
+                    ];
+
+                    notes.forEach(n => {
+                        this.playNote(noteFreqs[n.note], now + n.time, n.dur, 'triangle');
+                    });
+                }
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        // --- Game Logic ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game state constants
+        const STATES = {
+            MENU: 'MENU',
+            INTRO: 'INTRO', // Entering / fly-in stage setup
+            PLAYING: 'PLAYING',
+            CHALLENGE: 'CHALLENGE', // Challenge stage without enemy bullets
+            STAGE_COMPLETE: 'STAGE_COMPLETE',
+            TRACTOR_BEAM_SEQUENCE: 'TRACTOR_BEAM_SEQUENCE', // Focus zoom in on capture
+            GAME_OVER: 'GAME_OVER',
+            HIGHSCORE_ENTRY: 'HIGHSCORE_ENTRY'
+        };
+
+        let gameState = STATES.MENU;
+        let score = 0;
+        let lives = 3;
+        let currentStage = 1;
+        let totalShotsFired = 0;
+        let totalHits = 0;
+        let highScores = [];
+
+        // Stars parallax system
+        let stars = [];
+        const numStars = 100;
+        let starSpeedMultiplier = 1;
+
+        // Player properties
+        const player = {
+            x: 300,
+            y: 720,
+            width: 36,
+            height: 36,
+            speed: 5.5,
+            isDualFighter: false,
+            isCaptured: false,
+            capturedAnimProgress: 0,
+            capturedX: 0,
+            capturedY: 0,
+            capturedAngle: 0,
+            lastFiredTime: 0,
+            fireCooldown: 220, // ms
+            livesCount: 3,
+            isRescuing: false,
+            rescueAnimProgress: 0,
+            respawnInvincibility: 0
+        };
+
+        // Entities arrays
+        let playerBullets = [];
+        let enemyBullets = [];
+        let enemies = [];
+        let particles = [];
+
+        // Game timing & configuration
+        let lastTime = 0;
+        let keys = {};
+        let screenShake = 0;
+
+        // AI and wave configuration
+        let diveTimer = 0;
+        let diveInterval = 2500; // ms between enemy dive-bomb attacks
+        let activeDiveBombersCount = 0;
+        let formationEntranceActive = false;
+        let stageIntroProgress = 0;
+        let stageIntroLength = 180; // frames
+        
+        // Tractor beam target boss
+        let tractorBeamActive = false;
+        let tractorBeamBoss = null;
+        let tractorBeamSoundObj = null;
+
+        // Challenge stage variables
+        let challengeKilled = 0;
+        let totalChallengeEnemies = 0;
+
+        // Formations definitions: 10 Bees, 16 Butterflies, 4 Bosses
+        const gridCols = 10;
+        const gridRows = 5;
+        const formationGrid = {
+            cellWidth: 42,
+            cellHeight: 34,
+            startX: 110,
+            startY: 130
+        };
+
+        // --- Initialize Stars ---
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < numStars; i++) {
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    speed: 0.4 + Math.random() * 2, // parallax speed
+                    size: 1 + Math.random() * 2,
+                    color: `rgba(${150 + Math.floor(Math.random() * 105)}, ${180 + Math.floor(Math.random() * 75)}, 255, ${0.4 + Math.random() * 0.6})`
+                });
+            }
+        }
+
+        // Load high scores from localStorage
+        function loadHighScores() {
+            const raw = localStorage.getItem('galaga_scores');
+            if (raw) {
+                try {
+                    highScores = JSON.parse(raw);
+                } catch(e) {
+                    highScores = getDefaultScores();
+                }
+            } else {
+                highScores = getDefaultScores();
+            }
+            saveHighScores();
+            updateLeaderboardUI();
+        }
+
+        function getDefaultScores() {
+            return [
+                { name: 'AAA', score: 20000 },
+                { name: 'BBB', score: 15000 },
+                { name: 'CCC', score: 10000 },
+                { name: 'DDD', score: 5000 },
+                { name: 'EEE', score: 3000 }
+            ];
+        }
+
+        function saveHighScores() {
+            // Sort and clamp to top 5
+            highScores.sort((a, b) => b.score - a.score);
+            highScores = highScores.slice(0, 5);
+            localStorage.setItem('galaga_scores', JSON.stringify(highScores));
+        }
+
+        function updateLeaderboardUI() {
+            const listEl = document.getElementById('leaderboard');
+            listEl.innerHTML = '';
+            const ords = ['1st', '2nd', '3rd', '4th', '5th'];
+            highScores.forEach((s, idx) => {
+                const li = document.createElement('li');
+                li.className = 'leaderboard-item';
+                li.innerHTML = `<span>${ords[idx]} ${s.name}</span><span>${s.score.toLocaleString()}</span>`;
+                listEl.appendChild(li);
+            });
+        }
+
+        function updateHUDInfo() {
+            const waveIndicator = document.getElementById('wave-indicator');
+            const dualIndicator = document.getElementById('dual-indicator');
+            
+            waveIndicator.innerText = `STAGE: ${currentStage}` + (currentStage % 3 === 0 ? ' (CHALLENGE)' : '');
+            if (player.isDualFighter) {
+                dualIndicator.innerText = 'DUAL FIGHTERS';
+                dualIndicator.style.color = '#ff0077';
+            } else {
+                dualIndicator.innerText = 'SINGLE FIGHTER';
+                dualIndicator.style.color = '#00f0ff';
+            }
+        }
+
+        // --- Vector Sprite Drawings ---
+        function drawPlayerShip(c, x, y, width, height, isDual = false) {
+            c.save();
+            c.translate(x, y);
+
+            const halfW = width / 2;
+            const halfH = height / 2;
+
+            // Draw primary ship
+            drawSingleShipBody(c, 0, 0, halfW, halfH);
+
+            if (isDual) {
+                // Draw secondary ship attached to the left
+                c.save();
+                c.translate(-width - 4, 0);
+                drawSingleShipBody(c, 0, 0, halfW, halfH);
+                c.restore();
+            }
+
+            c.restore();
+        }
+
+        function drawSingleShipBody(c, cx, cy, halfW, halfH) {
+            // Nose Cone (white/red)
+            c.shadowBlur = 10;
+            c.shadowColor = '#fff';
+            c.fillStyle = '#ffffff';
+            c.beginPath();
+            c.moveTo(cx, cy - halfH);
+            c.lineTo(cx - 5, cy - halfH + 8);
+            c.lineTo(cx + 5, cy - halfH + 8);
+            c.closePath();
+            c.fill();
+
+            // Cockpit (blue)
+            c.fillStyle = '#00bbff';
+            c.beginPath();
+            c.moveTo(cx, cy - halfH + 8);
+            c.lineTo(cx - 4, cy - halfH + 18);
+            c.lineTo(cx + 4, cy - halfH + 18);
+            c.closePath();
+            c.fill();
+
+            // Ship Body Wings (red & white)
+            c.fillStyle = '#ff0055';
+            c.beginPath();
+            c.moveTo(cx - 5, cy - halfH + 12);
+            c.lineTo(cx - halfW, cy + halfH);
+            c.lineTo(cx - halfW + 6, cy + halfH);
+            c.lineTo(cx, cy - halfH + 20);
+            c.lineTo(cx + halfW - 6, cy + halfH);
+            c.lineTo(cx + halfW, cy + halfH);
+            c.lineTo(cx + 5, cy - halfH + 12);
+            c.closePath();
+            c.fill();
+
+            // Inner body
+            c.fillStyle = '#ffffff';
+            c.beginPath();
+            c.moveTo(cx - 4, cy - 2);
+            c.lineTo(cx - 10, cy + halfH - 2);
+            c.lineTo(cx + 10, cy + halfH - 2);
+            c.lineTo(cx + 4, cy - 2);
+            c.closePath();
+            c.fill();
+
+            // Animated Engines Exhaust (Flickering Blue/Orange flame)
+            c.fillStyle = Math.random() > 0.5 ? '#00f0ff' : '#ff7700';
+            c.beginPath();
+            c.moveTo(cx - 3, cy + halfH);
+            c.lineTo(cx, cy + halfH + (4 + Math.random() * 8));
+            c.lineTo(cx + 3, cy + halfH);
+            c.closePath();
+            c.fill();
+        }
+
+        // Alien Drawings
+        function drawAlien(c, type, x, y, width, height, frame, hitOnce = false) {
+            c.save();
+            c.translate(x, y);
+
+            const wingFlap = Math.sin(frame * 0.15) * 0.2; // Animated flap angle
+            c.shadowBlur = 6;
+
+            if (type === 'bee') {
+                c.shadowColor = '#0055ff';
+                // Bee: Blue body, yellow wings, red head
+                // Wings
+                c.fillStyle = '#ffcc00';
+                c.save();
+                c.rotate(wingFlap);
+                c.fillRect(-width/2 - 4, -height/4, width/2, height/2);
+                c.restore();
+
+                c.save();
+                c.rotate(-wingFlap);
+                c.fillRect(4, -height/4, width/2, height/2);
+                c.restore();
+
+                // Body
+                c.fillStyle = '#0055ff';
+                c.fillRect(-4, -height/2 + 2, 8, height - 4);
+                
+                // Stripes
+                c.fillStyle = '#ffffff';
+                c.fillRect(-4, -2, 8, 2);
+                c.fillRect(-4, 4, 8, 2);
+
+                // Head
+                c.fillStyle = '#ff0033';
+                c.beginPath();
+                c.arc(0, -height/2, 3, 0, Math.PI * 2);
+                c.fill();
+
+            } else if (type === 'butterfly') {
+                c.shadowColor = '#ff2200';
+                // Butterfly: Red body, white and yellow wings
+                // Large Wings
+                c.fillStyle = '#ffffff';
+                c.save();
+                c.rotate(wingFlap * 1.5);
+                c.beginPath();
+                c.moveTo(-2, -6);
+                c.lineTo(-width/2 - 6, -height/2);
+                c.lineTo(-width/2, height/2);
+                c.lineTo(-2, 2);
+                c.closePath();
+                c.fill();
+                
+                c.fillStyle = '#ffcc00';
+                c.beginPath();
+                c.moveTo(-2, -2);
+                c.lineTo(-width/2 + 2, -height/4);
+                c.lineTo(-width/2 + 4, height/4);
+                c.closePath();
+                c.fill();
+                c.restore();
+
+                c.fillStyle = '#ffffff';
+                c.save();
+                c.rotate(-wingFlap * 1.5);
+                c.beginPath();
+                c.moveTo(2, -6);
+                c.lineTo(width/2 + 6, -height/2);
+                c.lineTo(width/2, height/2);
+                c.lineTo(2, 2);
+                c.closePath();
+                c.fill();
+
+                c.fillStyle = '#ffcc00';
+                c.beginPath();
+                c.moveTo(2, -2);
+                c.lineTo(width/2 - 2, -height/4);
+                c.lineTo(width/2 - 4, height/4);
+                c.closePath();
+                c.fill();
+                c.restore();
+
+                // Body
+                c.fillStyle = '#ff2200';
+                c.fillRect(-3, -height/2 + 2, 6, height - 2);
+
+                // Antennae
+                c.strokeStyle = '#ffffff';
+                c.lineWidth = 1.5;
+                c.beginPath();
+                c.moveTo(-2, -height/2);
+                c.lineTo(-6, -height/2 - 4);
+                c.moveTo(2, -height/2);
+                c.lineTo(6, -height/2 - 4);
+                c.stroke();
+
+            } else if (type === 'boss') {
+                // Boss Galaga: Green body/wings. Blue details. Turning blue-purple when hit.
+                c.shadowColor = hitOnce ? '#9900ff' : '#00ff55';
+                const bodyColor = hitOnce ? '#6a0dad' : '#00b33c';
+                const wingColor = hitOnce ? '#b19cd9' : '#00ffd5';
+
+                // Double set of wings
+                c.fillStyle = wingColor;
+                c.save();
+                c.rotate(wingFlap * 0.8);
+                c.fillRect(-width/2 - 4, -height/2, width/2, height/2);
+                c.fillRect(-width/2 - 2, 0, width/2 - 2, height/3);
+                c.restore();
+
+                c.save();
+                c.rotate(-wingFlap * 0.8);
+                c.fillRect(4, -height/2, width/2, height/2);
+                c.fillRect(2, 0, width/2 - 2, height/3);
+                c.restore();
+
+                // Thorax/Body
+                c.fillStyle = bodyColor;
+                c.beginPath();
+                c.moveTo(0, -height/2);
+                c.lineTo(-7, -height/4);
+                c.lineTo(-5, height/2);
+                c.lineTo(5, height/2);
+                c.lineTo(7, -height/4);
+                c.closePath();
+                c.fill();
+
+                // Yellow horns / head
+                c.fillStyle = '#ffea00';
+                c.beginPath();
+                c.moveTo(-4, -height/2);
+                c.lineTo(0, -height/2 - 6);
+                c.lineTo(4, -height/2);
+                c.lineTo(0, -height/4);
+                c.closePath();
+                c.fill();
+            }
+
+            c.restore();
+        }
+
+        // --- Enemy Setup and Wave Spawner ---
+        function createStageWaves() {
+            enemies = [];
+            playerBullets = [];
+            enemyBullets = [];
+            tractorBeamActive = false;
+            tractorBeamBoss = null;
+            if (tractorBeamSoundObj) {
+                try {
+                    tractorBeamSoundObj.osc.stop();
+                    tractorBeamSoundObj.lfo.stop();
+                } catch(e) {}
+                tractorBeamSoundObj = null;
+            }
+
+            let isChallengeStage = (currentStage % 3 === 0);
+            totalChallengeEnemies = 0;
+            challengeKilled = 0;
+
+            if (isChallengeStage) {
+                // Challenge stage: Spawns special patterns that sweep quickly without firing
+                generateChallengeStageEnemies();
+            } else {
+                // Classic standard stage
+                generateStandardStageEnemies();
+            }
+
+            updateHUDInfo();
+        }
+
+        function generateStandardStageEnemies() {
+            formationEntranceActive = true;
+            stageIntroProgress = 0;
+
+            // Generate the grid positions but set states to 'entering'
+            // We spawn them in groups with specific path arrays
+            // Rows layout: 0: Bosses, 1-2: Butterflies, 3-4: Bees
+            const rowsTypes = ['boss', 'butterfly', 'butterfly', 'bee', 'bee'];
+
+            for (let row = 0; row < gridRows; row++) {
+                const type = rowsTypes[row];
+                const cols = (type === 'boss') ? 4 : ((type === 'butterfly') ? 8 : 10);
+                const xOffset = (canvas.width - (cols * formationGrid.cellWidth)) / 2;
+
+                for (let col = 0; col < cols; col++) {
+                    const gridX = xOffset + col * formationGrid.cellWidth + formationGrid.cellWidth / 2;
+                    const gridY = formationGrid.startY + row * formationGrid.cellHeight;
+
+                    // Compute fly-in path based on order
+                    const entranceIndex = col + row * 10;
+                    const spawnDelay = entranceIndex * 140; // milliseconds delay
+
+                    enemies.push({
+                        type: type,
+                        x: -50,
+                        y: -50,
+                        gridX: gridX,
+                        gridY: gridY,
+                        width: 32,
+                        height: 32,
+                        state: 'spawning',
+                        spawnDelay: spawnDelay,
+                        pathTime: 0,
+                        pathDuration: 2200, // 2.2 seconds path animation
+                        maxHp: (type === 'boss') ? 2 : 1,
+                        hp: (type === 'boss') ? 2 : 1,
+                        scoreValue: (type === 'boss') ? 150 : ((type === 'butterfly') ? 80 : 50),
+                        divingScoreValue: (type === 'boss') ? 400 : ((type === 'butterfly') ? 160 : 100),
+                        pathPoints: getEntrancePath(row, col, gridX, gridY),
+                        hasCapturedShip: false,
+                        capturedShipEntity: null
+                    });
+                }
+            }
+        }
+
+        function generateChallengeStageEnemies() {
+            formationEntranceActive = true;
+            stageIntroProgress = 0;
+
+            // Challenge stages spawn 4 waves of 8 enemies that sweep in, loop, and exit
+            // We define their target positions offscreen, meaning they don't form a static grid.
+            // When all 32 are processed, the stage ends.
+            const groups = [
+                { type: 'bee', startDelay: 500, side: 'left' },
+                { type: 'butterfly', startDelay: 4500, side: 'right' },
+                { type: 'bee', startDelay: 8500, side: 'left' },
+                { type: 'boss', startDelay: 12500, side: 'both' }
+            ];
+
+            groups.forEach((g, gIdx) => {
+                for (let i = 0; i < 8; i++) {
+                    totalChallengeEnemies++;
+                    const delay = g.startDelay + (i * 200);
+                    const path = getChallengePath(g.side, i, gIdx);
+
+                    enemies.push({
+                        type: g.type,
+                        x: -100,
+                        y: -100,
+                        gridX: -200, // never enters standard formation grid
+                        gridY: -200,
+                        width: 32,
+                        height: 32,
+                        state: 'spawning',
+                        spawnDelay: delay,
+                        pathTime: 0,
+                        pathDuration: 3500,
+                        maxHp: 1, // 1 hit kill in challenge stage for all
+                        hp: 1,
+                        scoreValue: 100,
+                        divingScoreValue: 100,
+                        pathPoints: path,
+                        isChallengeEnemy: true
+                    });
+                }
+            });
+        }
+
+        // --- Bezier Flight Path Calculations ---
+        function getEntrancePath(row, col, targetX, targetY) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const pts = [];
+
+            // Define four base paths based on row index
+            if (row === 0) {
+                // Bosses swoop from bottom-left, loop center, go to top grid
+                pts.push({ x: -40, y: h - 100 });
+                pts.push({ x: w * 0.3, y: h * 0.6 });
+                pts.push({ x: w * 0.7, y: h * 0.3 });
+                pts.push({ x: w * 0.5, y: h * 0.5 });
+                pts.push({ x: targetX, y: targetY });
+            } else if (row === 1 || row === 2) {
+                // Butterflies swoop from top-right, loop bottom, rise up
+                pts.push({ x: w + 40, y: 100 });
+                pts.push({ x: w * 0.6, y: h * 0.4 });
+                pts.push({ x: w * 0.2, y: h * 0.75 });
+                pts.push({ x: w * 0.5, y: h * 0.6 });
+                pts.push({ x: targetX, y: targetY });
+            } else {
+                // Bees sweep from top-left/top-right alternate
+                const side = (col % 2 === 0);
+                pts.push({ x: side ? -40 : w + 40, y: 50 });
+                pts.push({ x: side ? w * 0.35 : w * 0.65, y: h * 0.4 });
+                pts.push({ x: side ? w * 0.7 : w * 0.3, y: h * 0.65 });
+                pts.push({ x: w/2, y: h/2 });
+                pts.push({ x: targetX, y: targetY });
+            }
+
+            return pts;
+        }
+
+        function getChallengePath(side, index, groupIdx) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const pts = [];
+
+            if (side === 'left') {
+                // Enter top-left, circle, exit bottom-right
+                pts.push({ x: -50, y: 150 });
+                pts.push({ x: w * 0.4, y: 180 });
+                pts.push({ x: w * 0.7, y: 350 });
+                pts.push({ x: w * 0.3, y: h * 0.65 });
+                pts.push({ x: w + 80, y: h * 0.85 });
+            } else if (side === 'right') {
+                // Enter top-right, loop twice, exit bottom-left
+                pts.push({ x: w + 50, y: 150 });
+                pts.push({ x: w * 0.6, y: 200 });
+                pts.push({ x: w * 0.2, y: 300 });
+                pts.push({ x: w * 0.8, y: h * 0.6 });
+                pts.push({ x: -80, y: h * 0.8 });
+            } else {
+                // Enter center-top, wide loops, split exits
+                pts.push({ x: w/2, y: -50 });
+                pts.push({ x: w * 0.2 + (index * 40), y: h * 0.3 });
+                pts.push({ x: w * 0.8 - (index * 40), y: h * 0.6 });
+                pts.push({ x: (index % 2 === 0) ? -80 : w + 80, y: h * 0.9 });
+            }
+            return pts;
+        }
+
+        function getDivingPath(alien, playerX) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const pts = [];
+
+            pts.push({ x: alien.x, y: alien.y });
+            
+            // Randomize sweep behaviour based on type
+            if (alien.type === 'bee') {
+                // Quick drop towards player
+                pts.push({ x: (alien.x + playerX) / 2, y: h * 0.45 });
+                pts.push({ x: playerX + (Math.random() * 40 - 20), y: h * 0.75 });
+                pts.push({ x: playerX, y: h + 50 });
+            } else if (alien.type === 'butterfly') {
+                // S-curve loop
+                const dir = alien.x < w/2 ? 1 : -1;
+                pts.push({ x: alien.x + dir * 180, y: alien.y + 120 });
+                pts.push({ x: playerX - dir * 100, y: h * 0.55 });
+                pts.push({ x: playerX, y: h * 0.85 });
+                pts.push({ x: playerX + dir * 150, y: h + 50 });
+            } else {
+                // Boss Galaga tractor beam loop or heavy swoop
+                // 30% chance of triggering tractor beam if player is single-ship & tractor beam not already active
+                const tryTractor = !player.isDualFighter && !tractorBeamActive && Math.random() < 0.35 && player.livesCount > 0;
+                
+                if (tryTractor) {
+                    alien.willTractorBeam = true;
+                    // Dive halfway and hover
+                    pts.push({ x: w/2, y: h * 0.25 });
+                    pts.push({ x: w/2, y: 350 }); // Halt point
+                } else {
+                    alien.willTractorBeam = false;
+                    pts.push({ x: w * 0.3, y: h * 0.4 });
+                    pts.push({ x: playerX, y: h * 0.75 });
+                    pts.push({ x: playerX, y: h + 50 });
+                }
+            }
+
+            return pts;
+        }
+
+        // Generic N-point Bezier interpolation
+        function getBezierInterpolation(points, t) {
+            if (points.length === 0) return { x: 0, y: 0 };
+            if (points.length === 1) return points[0];
+
+            // de Casteljau's algorithm
+            let current = [...points];
+            while (current.length > 1) {
+                const next = [];
+                for (let i = 0; i < current.length - 1; i++) {
+                    next.push({
+                        x: (1 - t) * current[i].x + t * current[i + 1].x,
+                        y: (1 - t) * current[i].y + t * current[i + 1].y
+                    });
+                }
+                current = next;
+            }
+            return current[0];
+        }
+
+        // --- Particles Explosion System ---
+        function spawnExplosion(x, y, color = '#ff3300', count = 25) {
+            sound.playExplosion(count > 30);
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1.5 + Math.random() * 5;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 1.5 + Math.random() * 3,
+                    color: color,
+                    alpha: 1,
+                    decay: 0.015 + Math.random() * 0.03
+                });
+            }
+        }
+
+        // --- Game Setup & Loop ---
+        function resetGame() {
+            score = 0;
+            player.livesCount = 3;
+            currentStage = 1;
+            totalShotsFired = 0;
+            totalHits = 0;
+            player.isDualFighter = false;
+            player.isCaptured = false;
+            player.isRescuing = false;
+            player.respawnInvincibility = 0;
+            player.x = 300;
+            player.y = 720;
+            
+            initStars();
+            createStageWaves();
+            
+            gameState = STATES.INTRO;
+            sound.playMelody('intro');
+            
+            updateHUDInfo();
+        }
+
+        function triggerGameOver() {
+            gameState = STATES.GAME_OVER;
+            sound.playMelody('game_over');
+
+            // Save high scores if eligible
+            const worstScore = highScores.length < 5 ? 0 : highScores[highScores.length - 1].score;
+            if (score > worstScore || highScores.length < 5) {
+                setTimeout(() => {
+                    gameState = STATES.HIGHSCORE_ENTRY;
+                    scoreNameEntry = "";
+                }, 3000);
+            }
+        }
+
+        let scoreNameEntry = "";
+
+        // Game Loop
+        function loop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            // Handle Screen Shake damping
+            if (screenShake > 0) {
+                screenShake *= 0.9;
+                if (screenShake < 0.2) screenShake = 0;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            if (screenShake > 0) {
+                const dx = (Math.random() * 2 - 1) * screenShake;
+                const dy = (Math.random() * 2 - 1) * screenShake;
+                ctx.translate(dx, dy);
+            }
+
+            updateStars();
+            drawStars();
+
+            switch (gameState) {
+                case STATES.MENU:
+                    drawMenuScreen();
+                    break;
+                case STATES.INTRO:
+                    updateEntities(dt);
+                    drawEntities();
+                    updateIntroSequence();
+                    break;
+                case STATES.PLAYING:
+                case STATES.CHALLENGE:
+                    updateGameplay(dt);
+                    updateEntities(dt);
+                    drawEntities();
+                    break;
+                case STATES.STAGE_COMPLETE:
+                    updateEntities(dt);
+                    drawEntities();
+                    drawStageCompleteScreen();
+                    break;
+                case STATES.TRACTOR_BEAM_SEQUENCE:
+                    updateTractorBeamSequence(dt);
+                    updateEntities(dt);
+                    drawEntities();
+                    break;
+                case STATES.GAME_OVER:
+                    updateEntities(dt);
+                    drawEntities();
+                    drawGameOverScreen();
+                    break;
+                case STATES.HIGHSCORE_ENTRY:
+                    drawHighScoreEntryScreen();
+                    break;
+            }
+
+            ctx.restore();
+            requestAnimationFrame(loop);
+        }
+
+        // --- Space Background and Stars ---
+        function updateStars() {
+            const speed = 1.0 * starSpeedMultiplier;
+            stars.forEach(s => {
+                s.y += s.speed * speed;
+                if (s.y > canvas.height) {
+                    s.y = 0;
+                    s.x = Math.random() * canvas.width;
+                }
+            });
+        }
+
+        function drawStars() {
+            stars.forEach(s => {
+                ctx.fillStyle = s.color;
+                ctx.fillRect(s.x, s.y, s.size, s.size);
+            });
+        }
+
+        // --- Input Controls Handling ---
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+
+            // Prevent default scrolling keys
+            if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+                e.preventDefault();
+            }
+
+            if (gameState === STATES.MENU && e.code === 'Enter') {
+                sound.init();
+                resetGame();
+            }
+
+            if (gameState === STATES.GAME_OVER && e.code === 'Enter') {
+                resetGame();
+            }
+
+            if (gameState === STATES.HIGHSCORE_ENTRY) {
+                e.preventDefault();
+                handleHighScoreInput(e);
+            }
+        });
+
+        window.addEventListener('keyup', e => {
+            keys[e.code] = false;
+        });
+
+        function handleHighScoreInput(e) {
+            if (e.key === 'Enter') {
+                if (scoreNameEntry.length > 0) {
+                    highScores.push({ name: scoreNameEntry.toUpperCase(), score: score });
+                    saveHighScores();
+                    updateLeaderboardUI();
+                    gameState = STATES.MENU;
+                }
+            } else if (e.key === 'Backspace') {
+                scoreNameEntry = scoreNameEntry.slice(0, -1);
+            } else if (e.key.length === 1 && scoreNameEntry.length < 3 && /[a-zA-Z]/.test(e.key)) {
+                scoreNameEntry += e.key.toUpperCase();
+            }
+        }
+
+        // --- Entities Updates (Movement, Collisions) ---
+        function updateEntities(dt) {
+            // Update Player Bullets
+            playerBullets.forEach(b => {
+                b.y += b.vy;
+            });
+            playerBullets = playerBullets.filter(b => b.y > -20);
+
+            // Update Enemy Bullets
+            enemyBullets.forEach(b => {
+                b.y += b.vy;
+            });
+            enemyBullets = enemyBullets.filter(b => b.y < canvas.height + 20);
+
+            // Update Particles
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+            });
+            particles = particles.filter(p => p.alpha > 0);
+
+            // Update Enemies positions
+            const now = Date.now();
+            enemies.forEach((alien) => {
+                if (alien.state === 'spawning') {
+                    if (now - lastTime < alien.spawnDelay) return; // wait delay
+                    alien.state = 'flying_in';
+                    alien.pathTime = 0;
+                }
+
+                if (alien.state === 'flying_in') {
+                    alien.pathTime += dt;
+                    const progress = Math.min(alien.pathTime / alien.pathDuration, 1);
+                    const pos = getBezierInterpolation(alien.pathPoints, progress);
+                    alien.x = pos.x;
+                    alien.y = pos.y;
+
+                    if (progress >= 1) {
+                        if (alien.isChallengeEnemy) {
+                            // Challenge stage enemies exit off the screen, then die silently without scoring
+                            alien.state = 'dead_silent';
+                        } else {
+                            alien.state = 'formation';
+                        }
+                    }
+                }
+
+                if (alien.state === 'diving') {
+                    alien.pathTime += dt;
+                    const progress = alien.pathTime / alien.pathDuration;
+                    
+                    if (alien.willTractorBeam && progress >= 0.5 && progress < 0.9) {
+                        // Boss hovering during tractor beam sequence
+                        alien.x = canvas.width / 2;
+                        alien.y = 350;
+
+                        if (!tractorBeamActive) {
+                            activateTractorBeam(alien);
+                        }
+                    } else {
+                        const pos = getBezierInterpolation(alien.pathPoints, Math.min(progress, 1));
+                        alien.x = pos.x;
+                        alien.y = pos.y;
+
+                        // Rotate captured ship if in tow
+                        if (alien.hasCapturedShip && alien.capturedShipEntity) {
+                            alien.capturedShipEntity.x = alien.x;
+                            alien.capturedShipEntity.y = alien.y - 32;
+                        }
+                    }
+
+                    if (progress >= 1) {
+                        // Finished dive without dying, warp to top and fly back to formation
+                        alien.state = 'flying_in';
+                        alien.pathPoints = [
+                            { x: alien.x, y: -40 },
+                            { x: alien.gridX, y: alien.gridY }
+                        ];
+                        alien.pathTime = 0;
+                        alien.pathDuration = 1200;
+                        alien.willTractorBeam = false;
+                        
+                        // Warp captured ship too
+                        if (alien.hasCapturedShip && alien.capturedShipEntity) {
+                            alien.capturedShipEntity.x = alien.x;
+                            alien.capturedShipEntity.y = -72;
+                        }
+                    }
+                }
+
+                // If captured ship itself is flying around as an enemy
+                if (alien.state === 'captured_attacker') {
+                    alien.pathTime += dt;
+                    const progress = alien.pathTime / alien.pathDuration;
+                    const pos = getBezierInterpolation(alien.pathPoints, Math.min(progress, 1));
+                    alien.x = pos.x;
+                    alien.y = pos.y;
+                    if (progress >= 1) {
+                        alien.state = 'flying_in';
+                        alien.pathPoints = [
+                            { x: alien.x, y: -40 },
+                            { x: alien.gridX, y: alien.gridY - 32 }
+                        ];
+                        alien.pathTime = 0;
+                        alien.pathDuration = 1200;
+                    }
+                }
+            });
+
+            // Filter out dead silent challenge enemies
+            const countBefore = enemies.length;
+            enemies = enemies.filter(a => a.state !== 'dead_silent');
+            const countAfter = enemies.length;
+            if (countBefore !== countAfter) {
+                checkStageCompletion();
+            }
+
+            // Update Rescued Ship Float Animation
+            if (player.isRescuing) {
+                player.rescueAnimProgress += 0.015;
+                if (player.rescueAnimProgress >= 1) {
+                    player.isRescuing = false;
+                    player.isDualFighter = true;
+                    updateHUDInfo();
+                }
+            }
+
+            // Invincibility frame updates
+            if (player.respawnInvincibility > 0) {
+                player.respawnInvincibility -= dt;
+            }
+        }
+
+        function drawEntities() {
+            // Draw Player Bullets
+            playerBullets.forEach(b => {
+                ctx.fillStyle = '#00f0ff';
+                ctx.shadowColor = '#00f0ff';
+                ctx.shadowBlur = 8;
+                ctx.fillRect(b.x - b.width/2, b.y, b.width, b.height);
+            });
+
+            // Draw Enemy Bullets
+            enemyBullets.forEach(b => {
+                ctx.fillStyle = '#ff0055';
+                ctx.shadowColor = '#ff0055';
+                ctx.shadowBlur = 8;
+                ctx.fillRect(b.x - b.width/2, b.y, b.width, b.height);
+            });
+            ctx.shadowBlur = 0; // reset
+
+            // Draw Enemies
+            enemies.forEach(alien => {
+                // If it is the captured ship, render it as red player ship
+                if (alien.state === 'captured_squad') {
+                    drawPlayerShip(ctx, alien.x, alien.y, 36, 36, false);
+                    // Draw red overlay representing capture
+                    ctx.save();
+                    ctx.translate(alien.x, alien.y);
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 18, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.restore();
+                    return;
+                }
+
+                const hitOnce = (alien.type === 'boss' && alien.hp < alien.maxHp);
+                drawAlien(ctx, alien.type, alien.x, alien.y, alien.width, alien.height, lastTime, hitOnce);
+                
+                // Draw captured ship overlaying boss if it is towed
+                if (alien.hasCapturedShip && alien.capturedShipEntity) {
+                    drawPlayerShip(ctx, alien.x, alien.y - 30, 30, 30, false);
+                }
+            });
+
+            // Draw Tractor Beam Cone
+            if (tractorBeamActive && tractorBeamBoss) {
+                ctx.save();
+                ctx.translate(tractorBeamBoss.x, tractorBeamBoss.y + 20);
+                
+                const timeFactor = (Date.now() / 150) % 6;
+                const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+                gradient.addColorStop(0, 'rgba(0, 240, 255, 0.4)');
+                gradient.addColorStop(0.5, 'rgba(0, 80, 255, 0.25)');
+                gradient.addColorStop(1, 'rgba(255, 0, 119, 0.05)');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.moveTo(-15, 0);
+                ctx.lineTo(-75 - timeFactor * 4, 380);
+                ctx.lineTo(75 + timeFactor * 4, 380);
+                ctx.lineTo(15, 0);
+                ctx.closePath();
+                ctx.fill();
+
+                // Ribs inside tractor beam
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 8; i++) {
+                    const ry = 45 * i;
+                    const rwidth = 15 + (ry / 380) * 130;
+                    ctx.beginPath();
+                    ctx.ellipse(0, ry, rwidth, 6, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            // Draw Floating Rescued Ship
+            if (player.isRescuing) {
+                const targetX = player.x - 20;
+                const rx = player.capturedX + (targetX - player.capturedX) * player.rescueAnimProgress;
+                const ry = player.capturedY + (player.y - player.capturedY) * player.rescueAnimProgress;
+                
+                drawPlayerShip(ctx, rx, ry, 36, 36, false);
+                
+                // Text indicator
+                ctx.font = '9px "Press Start 2P"';
+                ctx.fillStyle = '#00ff66';
+                ctx.fillText("RESCUED!", rx - 30, ry - 30);
+            }
+
+            // Draw Player
+            if (!player.isCaptured && gameState !== STATES.GAME_OVER) {
+                // Flash when invincible
+                if (player.respawnInvincibility <= 0 || Math.floor(Date.now() / 100) % 2 === 0) {
+                    drawPlayerShip(ctx, player.x, player.y, player.width, player.height, player.isDualFighter);
+                }
+            } else if (player.isCaptured) {
+                // Captured Animation
+                ctx.save();
+                ctx.translate(player.capturedX, player.capturedY);
+                ctx.rotate(player.capturedAngle);
+                ctx.scale(1 - player.capturedAnimProgress * 0.5, 1 - player.capturedAnimProgress * 0.5);
+                drawPlayerShip(ctx, 0, 0, player.width, player.height, false);
+                ctx.restore();
+            }
+
+            // Draw Particles
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 6;
+                ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+                ctx.restore();
+            });
+        }
+
+        // --- Core Gameplay Loop Handler ---
+        function updateGameplay(dt) {
+            // Player Movement Left/Right
+            let moveLeft = keys['ArrowLeft'] || keys['KeyA'];
+            let moveRight = keys['ArrowRight'] || keys['KeyD'];
+
+            const speed = player.speed;
+            const halfW = player.width / 2;
+            const padding = player.isDualFighter ? player.width + 10 : halfW;
+
+            if (moveLeft && !player.isCaptured && !player.isRescuing) {
+                player.x = Math.max(padding, player.x - speed);
+            }
+            if (moveRight && !player.isCaptured && !player.isRescuing) {
+                player.x = Math.min(canvas.width - padding, player.x + speed);
+            }
+
+            // Handle Laser Fire
+            if (keys['Space'] && !player.isCaptured && !player.isRescuing) {
+                const now = Date.now();
+                if (now - player.lastFiredTime > player.fireCooldown) {
+                    firePlayerLaser();
+                    player.lastFiredTime = now;
+                }
+            }
+
+            // Increment dive bombing timer
+            diveTimer += dt;
+            if (diveTimer > diveInterval && !formationEntranceActive) {
+                diveTimer = 0;
+                triggerEnemyDive();
+            }
+
+            // Enemy laser firing randomly from diving enemies
+            enemies.forEach(alien => {
+                if (alien.state === 'diving' && !alien.willTractorBeam && Math.random() < 0.009 && gameState !== STATES.CHALLENGE) {
+                    fireEnemyLaser(alien.x, alien.y + 16);
+                }
+            });
+
+            // Perform Collisions
+            handleCollisions();
+        }
+
+        function firePlayerLaser() {
+            sound.playLaser();
+            if (player.isDualFighter) {
+                // Shoot two parallel lasers
+                playerBullets.push({ x: player.x - 20, y: player.y - 18, vy: -11, width: 3, height: 14 });
+                playerBullets.push({ x: player.x + 20, y: player.y - 18, vy: -11, width: 3, height: 14 });
+                totalShotsFired += 2;
+            } else {
+                playerBullets.push({ x: player.x, y: player.y - 18, vy: -11, width: 3, height: 14 });
+                totalShotsFired += 1;
+            }
+        }
+
+        function fireEnemyLaser(x, y) {
+            sound.playEnemyLaser();
+            enemyBullets.push({ x: x, y: y, vy: 5.5 + currentStage * 0.2, width: 3, height: 12 });
+        }
+
+        // Spawn a random enemy dive attack
+        function triggerEnemyDive() {
+            // Find enemies in formation state
+            const formationEnemies = enemies.filter(a => a.state === 'formation');
+            if (formationEnemies.length === 0) return;
+
+            // Choose a leader
+            const leader = formationEnemies[Math.floor(Math.random() * formationEnemies.length)];
+            
+            // Initiate flight path
+            leader.state = 'diving';
+            leader.pathTime = 0;
+            leader.pathDuration = 3200 - (currentStage * 100);
+            if (leader.pathDuration < 1800) leader.pathDuration = 1800;
+            leader.pathPoints = getDivingPath(leader, player.x);
+
+            // Sometimes bring escorts (bees or butterflies)
+            if (leader.type === 'boss') {
+                const escorts = formationEnemies.filter(a => a !== leader && (a.type === 'bee' || a.type === 'butterfly')).slice(0, 2);
+                escorts.forEach((e, idx) => {
+                    e.state = 'diving';
+                    e.pathTime = 0;
+                    e.pathDuration = leader.pathDuration;
+                    
+                    // Path slightly offset
+                    const offset = (idx === 0) ? -40 : 40;
+                    e.pathPoints = leader.pathPoints.map(p => ({ x: p.x + offset, y: p.y }));
+                });
+            }
+        }
+
+        // --- Tractor Beam logic ---
+        function activateTractorBeam(boss) {
+            tractorBeamActive = true;
+            tractorBeamBoss = boss;
+            tractorBeamSoundObj = sound.playTractorBeamSound();
+        }
+
+        function deactivateTractorBeam() {
+            tractorBeamActive = false;
+            tractorBeamBoss = null;
+            if (tractorBeamSoundObj) {
+                try {
+                    tractorBeamSoundObj.osc.stop();
+                    tractorBeamSoundObj.lfo.stop();
+                } catch(e) {}
+                tractorBeamSoundObj = null;
+            }
+        }
+
+        function handleTractorBeamPull() {
+            gameState = STATES.TRACTOR_BEAM_SEQUENCE;
+            player.isCaptured = true;
+            player.capturedAnimProgress = 0;
+            player.capturedX = player.x;
+            player.capturedY = player.y;
+            player.capturedAngle = 0;
+            
+            deactivateTractorBeam();
+        }
+
+        function updateTractorBeamSequence(dt) {
+            player.capturedAnimProgress += 0.005;
+            player.capturedAngle += 0.06;
+
+            // Spiral pulled upwards to boss height
+            const targetX = canvas.width / 2;
+            const targetY = 350 - 30; // attached directly above boss
+
+            player.capturedX += (targetX - player.capturedX) * 0.02;
+            player.capturedY += (targetY - player.capturedY) * 0.025;
+
+            if (player.capturedAnimProgress >= 1 || player.capturedY < 370) {
+                // Fully captured
+                player.isCaptured = false;
+                player.livesCount--;
+                
+                // Add the captured ship into our enemy collection as passive capture entity
+                if (tractorBeamBoss) {
+                    tractorBeamBoss.hasCapturedShip = true;
+                    tractorBeamBoss.capturedShipEntity = {
+                        type: 'captured_squad',
+                        state: 'captured_squad',
+                        x: tractorBeamBoss.x,
+                        y: tractorBeamBoss.y - 30,
+                        width: 32,
+                        height: 32
+                    };
+                    
+                    // Boss retreats
+                    tractorBeamBoss.state = 'flying_in';
+                    tractorBeamBoss.pathPoints = [
+                        { x: tractorBeamBoss.x, y: tractorBeamBoss.y },
+                        { x: tractorBeamBoss.gridX, y: tractorBeamBoss.gridY }
+                    ];
+                    tractorBeamBoss.pathTime = 0;
+                    tractorBeamBoss.pathDuration = 1500;
+                    
+                    // Create capture visual reference
+                    enemies.push(tractorBeamBoss.capturedShipEntity);
+                }
+
+                if (player.livesCount > 0) {
+                    // Respawn a new single ship
+                    player.x = 300;
+                    player.y = 720;
+                    player.respawnInvincibility = 2000; // 2 seconds invincibility
+                    gameState = STATES.PLAYING;
+                } else {
+                    triggerGameOver();
+                }
+                
+                updateHUDInfo();
+            }
+        }
+
+        // --- Collision Detection & Resolution ---
+        function handleCollisions() {
+            // 1. Player bullets vs Enemies
+            playerBullets.forEach((bullet, bIdx) => {
+                enemies.forEach((alien) => {
+                    if (alien.state === 'spawning' || alien.state === 'dead_silent') return;
+
+                    const dist = Math.hypot(bullet.x - alien.x, bullet.y - alien.y);
+                    const colDist = (alien.width + bullet.width) / 2 + 4;
+
+                    if (dist < colDist) {
+                        // HIT!
+                        playerBullets.splice(bIdx, 1);
+                        totalHits++;
+                        alien.hp--;
+
+                        if (alien.hp <= 0) {
+                            destroyEnemy(alien);
+                        } else {
+                            // Flashes blue/purple
+                            spawnExplosion(alien.x, alien.y, '#9900ff', 6);
+                        }
+                    }
+                });
+            });
+
+            // 2. Enemy bullets vs Player
+            if (!player.isCaptured && !player.isRescuing && player.respawnInvincibility <= 0 && gameState !== STATES.GAME_OVER) {
+                enemyBullets.forEach((bullet, bIdx) => {
+                    // We check hit for player single or dual fighter
+                    if (player.isDualFighter) {
+                        // Left ship hitbox
+                        const distLeft = Math.hypot(bullet.x - (player.x - 20), bullet.y - player.y);
+                        // Right ship hitbox
+                        const distRight = Math.hypot(bullet.x - (player.x + 20), bullet.y - player.y);
+                        const colDist = 20;
+
+                        if (distLeft < colDist) {
+                            enemyBullets.splice(bIdx, 1);
+                            destroyOneFighter('left');
+                        } else if (distRight < colDist) {
+                            enemyBullets.splice(bIdx, 1);
+                            destroyOneFighter('right');
+                        }
+                    } else {
+                        // Single ship hitbox
+                        const dist = Math.hypot(bullet.x - player.x, bullet.y - player.y);
+                        const colDist = (player.width / 2) + 2;
+
+                        if (dist < colDist) {
+                            enemyBullets.splice(bIdx, 1);
+                            destroyPlayer();
+                        }
+                    }
+                });
+            }
+
+            // 3. Enemy body vs Player body
+            if (!player.isCaptured && !player.isRescuing && player.respawnInvincibility <= 0 && gameState !== STATES.GAME_OVER) {
+                enemies.forEach((alien) => {
+                    if (alien.state === 'spawning' || alien.state === 'dead_silent') return;
+
+                    if (player.isDualFighter) {
+                        const distLeft = Math.hypot(alien.x - (player.x - 20), alien.y - player.y);
+                        const distRight = Math.hypot(alien.x - (player.x + 20), alien.y - player.y);
+                        const colDist = (alien.width + player.width/2) / 2;
+
+                        if (distLeft < colDist) {
+                            destroyEnemy(alien);
+                            destroyOneFighter('left');
+                        } else if (distRight < colDist) {
+                            destroyEnemy(alien);
+                            destroyOneFighter('right');
+                        }
+                    } else {
+                        const dist = Math.hypot(alien.x - player.x, alien.y - player.y);
+                        const colDist = (alien.width + player.width) / 2 - 4;
+
+                        if (dist < colDist) {
+                            destroyEnemy(alien);
+                            destroyPlayer();
+                        }
+                    }
+                });
+            }
+
+            // 4. Tractor Beam capture overlap check
+            if (tractorBeamActive && tractorBeamBoss && !player.isCaptured && !player.isRescuing && player.respawnInvincibility <= 0) {
+                const b = tractorBeamBoss;
+                // Beam is a cone extending down from boss.y to canvas.height
+                // Check if player.y is within the beam height and player.x is within width
+                if (player.y > b.y + 40) {
+                    const beamHeight = player.y - (b.y + 20);
+                    const beamHalfWidthAtY = 15 + (beamHeight / 380) * 85;
+                    
+                    if (Math.abs(player.x - b.x) < beamHalfWidthAtY) {
+                        handleTractorBeamPull();
+                    }
+                }
+            }
+        }
+
+        function destroyEnemy(alien) {
+            // Remove from list
+            const idx = enemies.indexOf(alien);
+            if (idx > -1) enemies.splice(idx, 1);
+
+            // Compute score values
+            const isDiving = (alien.state === 'diving');
+            const scoreVal = isDiving ? alien.divingScoreValue : alien.scoreValue;
+            score += scoreVal;
+
+            // Colorful explosions
+            let expColor = '#00ffd5';
+            if (alien.type === 'bee') expColor = '#ffea00';
+            if (alien.type === 'butterfly') expColor = '#ff2200';
+            
+            spawnExplosion(alien.x, alien.y, expColor, alien.type === 'boss' ? 35 : 20);
+            screenShake = alien.type === 'boss' ? 8 : 4;
+
+            // Handle rescuing captured ship
+            if (alien.hasCapturedShip) {
+                alien.hasCapturedShip = false;
+                const captured = alien.capturedShipEntity;
+                if (captured) {
+                    // Remove captured dummy entity
+                    const cIdx = enemies.indexOf(captured);
+                    if (cIdx > -1) enemies.splice(cIdx, 1);
+
+                    if (isDiving) {
+                        // RESCUED! Trigger transition
+                        player.isRescuing = true;
+                        player.rescueAnimProgress = 0;
+                        player.capturedX = captured.x;
+                        player.capturedY = captured.y;
+                    } else {
+                        // Shot boss in formation: captured ship becomes aggressive attacker!
+                        captured.state = 'captured_attacker';
+                        captured.hp = 1;
+                        captured.pathTime = 0;
+                        captured.pathDuration = 2000;
+                        // Swoops downwards as an enemy
+                        captured.pathPoints = [
+                            { x: captured.x, y: captured.y },
+                            { x: player.x, y: canvas.height + 40 }
+                        ];
+                        // Re-add to active list with aggressive status
+                        enemies.push(captured);
+                    }
+                }
+            }
+
+            // If the player shoots down their own captured ship
+            if (alien.state === 'captured_squad' || alien.state === 'captured_attacker') {
+                score += 1000; // small consolation prize
+                spawnExplosion(alien.x, alien.y, '#ffffff', 30);
+            }
+
+            if (gameState === STATES.CHALLENGE) {
+                challengeKilled++;
+            }
+
+            checkStageCompletion();
+        }
+
+        function destroyOneFighter(side) {
+            // Lose one fighter from the dual setup
+            spawnExplosion(player.x + (side === 'left' ? -20 : 20), player.y, '#ffffff', 25);
+            screenShake = 10;
+            player.isDualFighter = false;
+            
+            // Adjust coordinates to remaining single ship center
+            player.x = player.x + (side === 'left' ? 20 : -20);
+            player.respawnInvincibility = 1000; // short buffer
+            
+            updateHUDInfo();
+        }
+
+        function destroyPlayer() {
+            spawnExplosion(player.x, player.y, '#ffffff', 40);
+            screenShake = 20;
+
+            player.livesCount--;
+            updateHUDInfo();
+
+            // Deactivate beam if active
+            deactivateTractorBeam();
+
+            if (player.livesCount > 0) {
+                // Respawn
+                player.x = 300;
+                player.y = 720;
+                player.respawnInvincibility = 2000;
+            } else {
+                triggerGameOver();
+            }
+        }
+
+        function checkStageCompletion() {
+            // Count enemies remaining that are not dummy capture overlays
+            const activeEnemies = enemies.filter(e => e.state !== 'captured_squad');
+            
+            if (activeEnemies.length === 0 && (gameState === STATES.PLAYING || gameState === STATES.CHALLENGE)) {
+                // Stage cleared!
+                gameState = STATES.STAGE_COMPLETE;
+                starSpeedMultiplier = 8; // hyperdrive star effect
+                sound.playMelody('stage_clear');
+                
+                setTimeout(() => {
+                    currentStage++;
+                    starSpeedMultiplier = 1;
+                    createStageWaves();
+                    gameState = STATES.INTRO;
+                }, 4000);
+            }
+        }
+
+        // --- Wave Intros / Fly-in setups ---
+        function updateIntroSequence() {
+            // Count spawning or flying-in enemies
+            const processing = enemies.some(a => a.state === 'spawning' || a.state === 'flying_in');
+            
+            if (!processing) {
+                // All enemies have settled in grid
+                formationEntranceActive = false;
+                gameState = (currentStage % 3 === 0) ? STATES.CHALLENGE : STATES.PLAYING;
+                diveTimer = 0;
+            }
+        }
+
+        // --- Menu, HUD, Overlay Draws ---
+        function drawMenuScreen() {
+            // Title logo with glow
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 15;
+            
+            const gradient = ctx.createLinearGradient(0, 150, 0, 250);
+            gradient.addColorStop(0, '#ffd700');
+            gradient.addColorStop(0.5, '#ff3300');
+            gradient.addColorStop(1, '#ff0077');
+            
+            ctx.fillStyle = gradient;
+            ctx.font = '42px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText("GALAGA", 300, 220);
+            ctx.shadowBlur = 0; // reset
+
+            // Subtitle
+            ctx.fillStyle = '#00ffc8';
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText("CLASSIC ARCADE REMAKE", 300, 260);
+
+            // Insert Coin Flashing
+            if (Math.floor(Date.now() / 600) % 2 === 0) {
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '12px "Press Start 2P"';
+                ctx.fillText("PRESS ENTER TO START", 300, 420);
+            }
+
+            // Controls instruction
+            ctx.fillStyle = '#8888aa';
+            ctx.font = '9px "Press Start 2P"';
+            ctx.fillText("KEYBOARD: A/D OR ARROWS TO MOVE", 300, 520);
+            ctx.fillText("SPACE TO FIRE", 300, 545);
+
+            // Credit
+            ctx.fillStyle = '#ffd700';
+            ctx.fillText("INSERT COIN OR PRESS TO INITIALIZE AUDIO", 300, 680);
+        }
+
+        function drawStageCompleteScreen() {
+            ctx.fillStyle = '#ffd700';
+            ctx.font = '22px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText(`STAGE ${currentStage} CLEAR`, 300, 320);
+
+            if (currentStage % 3 === 0) {
+                ctx.font = '12px "Press Start 2P"';
+                ctx.fillStyle = '#00ffaa';
+                ctx.fillText(`CHALLENGE STAGE COMPLETED`, 300, 380);
+                
+                const percent = Math.round((challengeKilled / totalChallengeEnemies) * 100) || 0;
+                ctx.fillText(`KILLED: ${challengeKilled} / ${totalChallengeEnemies} (${percent}%)`, 300, 420);
+                
+                if (percent === 100) {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.font = '16px "Press Start 2P"';
+                    ctx.fillText("PERFECT BONUS 10,000 PTS!", 300, 470);
+                }
+            } else {
+                ctx.font = '11px "Press Start 2P"';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText("WARPING TO NEXT SECTOR...", 300, 380);
+            }
+        }
+
+        function drawGameOverScreen() {
+            ctx.fillStyle = '#ff0055';
+            ctx.font = '28px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText("GAME OVER", 300, 240);
+
+            // Display Statistics
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '10px "Press Start 2P"';
+            ctx.textAlign = 'left';
+
+            const startX = 160;
+            ctx.fillText(`- SCORE:      ${score.toLocaleString()}`, startX, 340);
+            ctx.fillText(`- STAGE:      ${currentStage}`, startX, 380);
+            ctx.fillText(`- SHOTS FIRED: ${totalShotsFired}`, startX, 420);
+            ctx.fillText(`- TOTAL HITS:  ${totalHits}`, startX, 460);
+
+            const ratio = totalShotsFired > 0 ? ((totalHits / totalShotsFired) * 100).toFixed(1) : 0;
+            ctx.fillText(`- HIT RATIO:  ${ratio}%`, startX, 500);
+
+            // Flash restart instruction
+            if (Math.floor(Date.now() / 600) % 2 === 0) {
+                ctx.fillStyle = '#ffd700';
+                ctx.textAlign = 'center';
+                ctx.fillText("PRESS ENTER FOR RETRY", 300, 620);
+            }
+        }
+
+        function drawHighScoreEntryScreen() {
+            ctx.fillStyle = '#ffd700';
+            ctx.font = '20px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText("NEW HIGH SCORE!", 300, 240);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '14px "Press Start 2P"';
+            ctx.fillText(`SCORE: ${score.toLocaleString()}`, 300, 300);
+
+            ctx.font = '11px "Press Start 2P"';
+            ctx.fillText("ENTER YOUR NAME:", 300, 380);
+
+            // Render name entry box
+            ctx.font = '28px "Press Start 2P"';
+            ctx.fillStyle = '#00f0ff';
+            
+            // Format letters (e.g. A B C with bottom dashes)
+            let displayStr = "";
+            for (let i = 0; i < 3; i++) {
+                if (i < scoreNameEntry.length) {
+                    displayStr += scoreNameEntry[i] + " ";
+                } else {
+                    displayStr += "_ ";
+                }
+            }
+            ctx.fillText(displayStr.trim(), 300, 450);
+
+            ctx.font = '9px "Press Start 2P"';
+            ctx.fillStyle = '#8888aa';
+            ctx.fillText("TYPE LETTERS AND PRESS ENTER TO CONFIRM", 300, 520);
+        }
+
+        // --- HUD Overlay Draws on main loop ---
+        // We draw simple floating scores and live counters on the canvas itself
+        function drawHUDOverlay() {
+            if (gameState === STATES.MENU || gameState === STATES.HIGHSCORE_ENTRY) return;
+
+            // Score HUD top-left
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '10px "Press Start 2P"';
+            ctx.textAlign = 'left';
+            ctx.fillText("SCORE", 20, 30);
+            ctx.fillStyle = '#00f0ff';
+            ctx.fillText(score.toLocaleString(), 20, 50);
+
+            // High Score HUD center-top
+            ctx.fillStyle = '#ff0055';
+            ctx.textAlign = 'center';
+            ctx.fillText("HIGH SCORE", 300, 30);
+            ctx.fillStyle = '#ffffff';
+            const highest = highScores.length > 0 ? Math.max(score, highScores[0].score) : score;
+            ctx.fillText(highest.toLocaleString(), 300, 50);
+
+            // Lives indicators top-right (as tiny ship icons)
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'right';
+            ctx.fillText("LIVES", 580, 30);
+            
+            const liveW = 16;
+            const liveH = 16;
+            for (let i = 0; i < player.livesCount - 1; i++) {
+                drawPlayerShip(ctx, 580 - (i * (liveW + 8)) - liveW/2, 50, liveW, liveH, false);
+            }
+        }
+
+        // Add drawHUDOverlay into entities drawings
+        const originalDrawEntities = drawEntities;
+        drawEntities = function() {
+            originalDrawEntities();
+            drawHUDOverlay();
+        }
+
+        // --- Setup Option Event Listeners ---
+        document.getElementById('sound-toggle').addEventListener('change', e => {
+            sound.muted = !e.target.checked;
+            sound.init(); // Initialize context when toggled
+        });
+
+        document.getElementById('crt-toggle').addEventListener('change', e => {
+            const container = document.getElementById('screen-container');
+            if (e.target.checked) {
+                container.classList.remove('no-crt');
+                container.classList.add('crt-glow');
+            } else {
+                container.classList.add('no-crt');
+                container.classList.remove('crt-glow');
+            }
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            sound.init();
+            resetGame();
+        });
+
+        // Initialize game resources
+        loadHighScores();
+        initStars();
+        
+        // Start animation loop
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
